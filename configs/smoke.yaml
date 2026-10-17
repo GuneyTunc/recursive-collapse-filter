@@ -1,0 +1,9 @@
+# Tiny end-to-end run to check that the pipeline works (minutes, not hours).
+#   python -m src.pipeline --config configs/smoke.yaml --set selection.method=dual
+inherits: base.yaml
+experiment: {line: smoke, seeds: [0], generations: 2, output_dir: outputs_smoke}
+data: {data_dir: data/smoke, scan_limit: 5000, n_train: 300, n_val: 100, n_test: 100}
+generate: {batch_size: 64}  # keep max_new_tokens: truncated stories fail the length bound
+eval: {n_samples: 100, self_bleu_samples: 100}
+filter:
+  semdedup: {cluster_size: 30}

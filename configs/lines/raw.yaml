@@ -1,0 +1,5 @@
+# Control: N unfiltered synthetic samples drawn uniformly from the pool.
+# With a fixed N per generation this line is also the size-matched random baseline.
+inherits: ../base.yaml
+experiment: {line: raw}
+selection: {method: random}

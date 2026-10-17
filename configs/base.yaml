@@ -1,0 +1,89 @@
+# Base configuration. Line configs in configs/lines/ inherit from this file and
+# override only what differs. Any key can also be overridden on the command line:
+#   python -m src.pipeline --config configs/lines/dual_filter.yaml --set train.lr=1e-4
+
+experiment:
+  line: raw                 # experiment line name (output folder)
+  seeds: [0, 1, 2]
+  generations: 5            # synthetic generations after gen-0
+  regime: replace           # replace | accumulate
+  output_dir: outputs       # overridden by the MC_OUTPUT_DIR environment variable
+  keep_checkpoints: false   # only the shared gen-0 (reference) model is always saved
+
+data:
+  dataset: roneneldan/TinyStories
+  split: train
+  data_dir: data/real       # cached real splits (train/val/test jsonl)
+  split_seed: 1234          # fixed across experiment seeds: all seeds share D0
+  scan_limit: 200000        # number of streamed stories to sample from
+  min_words: 40
+  max_words: 220            # keeps stories within model.max_length tokens
+  n_train: 10000            # N: training-set size of every generation
+  n_val: 1000               # reference calibration (filter bounds)
+  n_test: 2000              # held-out real test set (never trained on / tuned on)
+
+model:
+  base: HuggingFaceTB/SmolLM-135M
+  max_length: 320
+
+train:
+  epochs: 1
+  lr: 5.0e-5
+  weight_decay: 0.01
+  batch_size: 8             # micro-batch; effective batch = batch_size * grad_accum = 16
+  grad_accum: 2             # micro-batch 16 peaks at ~11 GB and spills out of 8 GB VRAM
+  gradient_checkpointing: true  # ~3.6 GB peak instead of ~6.9 GB at micro-batch 8, same speed
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  bf16: true
+
+generate:
+  prompt_mode: bos          # bos (unconditional) | real_prefix
+  prompt_words: 3           # only for real_prefix
+  temperature: 1.0          # pure ancestral sampling by default (see CLAUDE.md)
+  top_p: 1.0
+  max_new_tokens: 300
+  batch_size: 128           # ~6.5 docs/s on an RTX 4060 Laptop; larger batches spill VRAM under WDDM
+  oversample: 1.5           # pool size M = oversample * N
+
+selection:
+  method: random            # random | density | ppl | semdedup | dual
+  real_frac: 0.0            # share of fixed real data mixed into every generation
+
+filter:
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  embedding_batch_size: 256
+  reference_model: gen0     # gen0 = frozen gen-0 model of the same seed, or a HF model id
+  ppl_batch_size: 32        # LM head is chunked (src/lm.py), so this barely affects memory
+
+  density:
+    method: knn             # knn | kde | hdbscan
+    k: 10
+    pca_dim: 32             # used by kde and hdbscan
+    hdbscan_min_cluster_size: 25
+
+  dual:
+    tail_quantile: auto     # lowest-density pool share treated as "tail"; auto = (1-center_frac)*N/M
+    center_frac: 0.7        # share of the selected set coming from the center
+    center_alpha: 1.0       # center sampling weight ~ density_rank^-alpha (0 = uniform)
+    tail_alpha: 0.0
+    heuristics_scope: all   # all | tail | none
+    ppl_scope: tail         # all | tail | none
+
+  bounds:                   # quantiles of the real validation set (reference-calibrated)
+    ppl_low: 0.01
+    ppl_high: 0.99
+    heuristic_low: 0.01
+    heuristic_high: 0.99
+
+  semdedup:
+    cluster_size: 100       # average points per k-means cluster
+    eps: 0.05               # drop if cosine similarity > 1 - eps to a kept point
+
+eval:
+  n_samples: 1000           # generations used for output-diversity metrics
+  self_bleu_samples: 500
+  rare_min_count: 2         # rare word band in D0: rare_min_count <= count <= rare_max_count
+  rare_max_count: 10
+  zipf_top: 1000
+  mauve: false              # needs the optional mauve-text package

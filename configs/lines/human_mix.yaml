@@ -1,0 +1,4 @@
+# Industry approach: fixed 30% real data + 70% unfiltered synthetic.
+inherits: ../base.yaml
+experiment: {line: human_mix}
+selection: {method: random, real_frac: 0.3}

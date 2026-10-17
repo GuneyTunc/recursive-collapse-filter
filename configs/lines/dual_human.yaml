@@ -1,0 +1,4 @@
+# Proposed method combined with the fixed 30% real data core.
+inherits: ../base.yaml
+experiment: {line: dual_human}
+selection: {method: dual, real_frac: 0.3}

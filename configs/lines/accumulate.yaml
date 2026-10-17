@@ -1,0 +1,4 @@
+# Gerstgrasser et al. (2024): real data and every previous synthetic set are accumulated.
+inherits: ../base.yaml
+experiment: {line: accumulate, regime: accumulate}
+selection: {method: random}

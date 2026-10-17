@@ -1,0 +1,6 @@
+# Ablation: density axis only (no heuristics, no perplexity bounds).
+inherits: ../base.yaml
+experiment: {line: density_only}
+selection: {method: dual}
+filter:
+  dual: {heuristics_scope: none, ppl_scope: none}

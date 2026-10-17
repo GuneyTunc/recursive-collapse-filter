@@ -1,0 +1,4 @@
+# Proposed method: density downsampling of the center + reference-calibrated noise bounds on the tail.
+inherits: ../base.yaml
+experiment: {line: dual_filter}
+selection: {method: dual}

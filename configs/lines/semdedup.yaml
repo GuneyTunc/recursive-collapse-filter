@@ -1,0 +1,4 @@
+# Literature baseline: SemDeDup-style semantic deduplication, then uniform.
+inherits: ../base.yaml
+experiment: {line: semdedup}
+selection: {method: semdedup}

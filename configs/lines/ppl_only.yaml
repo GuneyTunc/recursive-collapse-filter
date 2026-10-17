@@ -1,0 +1,4 @@
+# Ablation: noise axis only (heuristic + perplexity bounds on the whole pool, then uniform).
+inherits: ../base.yaml
+experiment: {line: ppl_only}
+selection: {method: ppl}

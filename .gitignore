@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+
+# Large artefacts: models, generated pools, embeddings
+/outputs/
+/outputs_*/
+/data/
+*.safetensors
+*.npy
