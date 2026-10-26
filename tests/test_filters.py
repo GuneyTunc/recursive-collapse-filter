@@ -39,6 +39,70 @@ def test_heuristic_bounds_are_one_sided():
     assert heuristics.within_bounds(probe, b).tolist() == [True, False]
 
 
+def _reference(nonalpha):
+    n = len(nonalpha)
+    return {"n_words": np.linspace(50, 200, n), "rep3": np.linspace(0, 0.1, n),
+            "gzip_ratio": np.linspace(0.45, 0.7, n), "nonalpha_ratio": np.asarray(nonalpha, float)}
+
+
+def _probe(nonalpha):
+    n = len(nonalpha)
+    return {"n_words": np.full(n, 120.0), "rep3": np.zeros(n), "gzip_ratio": np.full(n, 0.6),
+            "nonalpha_ratio": np.asarray(nonalpha, float)}
+
+
+def test_degenerate_quantile_rejects_any_odd_character_without_tolerance():
+    # 999 of 1000 real stories have no odd character: the 99% quantile is 0.
+    ref = _reference([0.0] * 999 + [0.0022])
+    b = heuristics.calibrate(ref, 0.01, 0.99)
+    assert b["nonalpha_ratio"]["value"] == 0.0
+    assert heuristics.within_bounds(_probe([0.0, 0.001]), b).tolist() == [True, False]
+
+
+def test_tolerance_relaxes_a_degenerate_upper_bound():
+    ref = _reference([0.0] * 999 + [0.0022])
+    b = heuristics.calibrate(ref, 0.01, 0.99, {"nonalpha_ratio": 0.005})
+    nb = b["nonalpha_ratio"]
+    assert nb["value"] == 0.005 and nb["quantile"] == 0.0 and nb["tolerance_applied"]
+    assert heuristics.within_bounds(_probe([0.0, 0.001, 0.005, 0.03]), b).tolist() == [
+        True, True, True, False]
+    # Features without a tolerance keep their calibrated quantile.
+    assert not b["rep3"]["tolerance_applied"]
+
+
+def test_tolerance_never_tightens_a_bound():
+    high = heuristics.calibrate(_reference(np.linspace(0, 0.02, 100)), 0.01, 0.99,
+                                {"nonalpha_ratio": 0.005})
+    assert high["nonalpha_ratio"]["value"] == pytest.approx(0.0198)
+    assert not high["nonalpha_ratio"]["tolerance_applied"]
+    # Lower bounds: the tolerance can only lower them.
+    ref = _reference([0.0] * 100)
+    assert heuristics.calibrate(ref, 0.01, 0.99, {"n_words": 40})["n_words"]["value"] == 40
+    assert heuristics.calibrate(ref, 0.01, 0.99, {"n_words": 80})["n_words"]["value"] == pytest.approx(51.5)
+
+
+def test_tolerance_rejects_unknown_feature():
+    with pytest.raises(ValueError, match="unknown heuristic"):
+        heuristics.calibrate(_reference([0.0] * 10), 0.01, 0.99, {"nonalpha": 0.005})
+
+
+def test_base_config_tolerance_keeps_prose_and_drops_markup():
+    tol = yaml.safe_load(open(resolve("configs/base.yaml"), encoding="utf-8"))[
+        "filter"]["bounds"]["heuristic_tolerance"]
+    # A typical story length (~700 characters) with one "$".
+    story = ("Once upon a time, a little girl named Lily found a shiny coin in the park. "
+             "It said $1 on one side. ") + (
+             "She ran home to show her mom, and they smiled and talked about it all day. ") * 8
+    markup = ("**Step 1:** run `print(x)` then [link](http://a.b/c?d=1) #tag $$\\{x\\}$$ "
+              "and **Step 2:** done. ") * 4
+    texts = [story, markup]
+    feats = heuristics.text_features(texts)
+    assert 0 < feats["nonalpha_ratio"][0] < 0.005 < feats["nonalpha_ratio"][1]
+    b = heuristics.calibrate(_reference([0.0] * 1000), 0.01, 0.99, tol)
+    probe = {**_probe(feats["nonalpha_ratio"]), "nonalpha_ratio": feats["nonalpha_ratio"]}
+    assert heuristics.within_bounds(probe, b).tolist() == [True, False]
+
+
 def test_perplexity_bounds_from_reference():
     ref = np.linspace(1.0, 3.0, 101)
     b = perplexity.calibrate(ref, 0.01, 0.99)

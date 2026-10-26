@@ -132,6 +132,13 @@ Opsiyonel: küçük bir örneklemde insan veya LLM-hakem değerlendirmesi (yaln�
 - **Gürültü sınırları gerçek veriye kalibre:** PPL ve sezgisel özellik eşikleri el ile seçilmez;
   gerçek doğrulama verisinin %1/%99 kuantilleridir (M1'in uygulanışı). Alt PPL sınırı döngüsel
   tekrarları, üst sınır anlamsız metni yakalar.
+- **Dejenere kuantil toleransı (2026-10-25):** Smoke testte alfabe dışı karakter oranının %99
+  kuantili 0 çıktı (1000 gerçek hikâyeden yalnızca 1'inde bu tür karakter var), bu yüzden tek bir
+  "$" içeren metin eleniyor ve nesil-1 havuzunun %37'si bu sınıra takılıyordu.
+  `filter.bounds.heuristic_tolerance.nonalpha_ratio: 0.005` eklendi: sınır bundan daha katı olamaz.
+  Değer, gerçek veride görülen en yüksek değerin (0.0022) yaklaşık iki katı; smoke havuzlarındaki
+  kod, markup ve Latin dışı alfabe içeren çıktılar bunun üstünde. Nesil-1 havuzunda sezgisel
+  sınırların elediği metin sayısı 99'dan 45'e indi.
 - **Yoğunluk sıraya dönüştürülür:** k-NN / KDE / HDBSCAN skorları karşılaştırılabilir olmadığından
   seçim, yoğunluk sırası (0, 1] üzerinden yapılır; merkez ağırlığı `rank^-alpha` (M2, M3).
 - **`tail_quantile: auto`:** Oyuncak deneyde sabit 0.3 değeri kuyruğu merkezle aynı oranda seyreltti

@@ -101,9 +101,14 @@ class Run:
             "reference_model": self.reference_model_path(),
             "ppl": perplexity.calibrate(val_ppl, b["ppl_low"], b["ppl_high"]),
             "heur": heuristics.calibrate(heuristic_features(self.real.val),
-                                         b["heuristic_low"], b["heuristic_high"]),
+                                         b["heuristic_low"], b["heuristic_high"],
+                                         b["heuristic_tolerance"]),
             "rare_band_size": len(self.rare),
         }
+        for name, hb in ref["heur"].items():
+            if hb["tolerance_applied"]:
+                log.info("heuristic bound %s: real quantile %.4g is stricter than the tolerance, "
+                         "using %.4g", name, hb["quantile"], hb["value"])
         write_json(path, ref)
         return ref
 

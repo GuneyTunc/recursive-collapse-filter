@@ -75,6 +75,13 @@ filter:
     ppl_high: 0.99
     heuristic_low: 0.01
     heuristic_high: 0.99
+    # Strictest bound a heuristic feature may get. Needed when the real quantile collapses
+    # onto the ideal value: only ~1 in 1000 real stories has any character outside the
+    # plain-English alphabet, so its 99% quantile is 0 and a single "$" would reject a text.
+    # 0.005 (~5 odd characters per 1000) is about twice the largest real value seen (0.0022);
+    # code, markup and foreign-script outputs in the smoke pools sit above it.
+    heuristic_tolerance:
+      nonalpha_ratio: 0.005
 
   semdedup:
     cluster_size: 100       # average points per k-means cluster

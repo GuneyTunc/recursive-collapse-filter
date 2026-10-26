@@ -4,6 +4,12 @@ Every feature has a direction: a sample is rejected only on the side that signal
 degeneration (e.g. too repetitive), never for being unusual in the other direction.
 Bounds are quantiles of the same feature on real validation data, so no threshold
 is hand-picked.
+
+A quantile can collapse onto the feature's ideal value: almost no real story has a
+single character outside the plain-English alphabet, so the 99% quantile of
+``nonalpha_ratio`` is 0 and one "$" would reject a text. An optional per-feature
+*tolerance* caps how strict a bound may get; it only acts when the calibrated bound
+is stricter than the tolerance.
 """
 from __future__ import annotations
 
@@ -60,15 +66,26 @@ def text_features(texts: list[str]) -> dict[str, np.ndarray]:
     }
 
 
-def calibrate(reference: dict[str, np.ndarray], q_low: float, q_high: float) -> dict[str, dict]:
-    """Per-feature one-sided bound from the real reference distribution."""
+def calibrate(reference: dict[str, np.ndarray], q_low: float, q_high: float,
+              tolerance: dict[str, float] | None = None) -> dict[str, dict]:
+    """Per-feature one-sided bound from the real reference distribution.
+
+    ``tolerance`` maps a feature to the strictest bound it may get: an upper bound is
+    never below it, a lower bound never above it. ``quantile`` keeps the calibrated
+    value and ``tolerance_applied`` says whether the tolerance replaced it.
+    """
+    tolerance = tolerance or {}
+    unknown = set(tolerance) - set(FEATURES)
+    if unknown:
+        raise ValueError(f"Tolerance for unknown heuristic feature(s): {sorted(unknown)}")
     bounds = {}
     for name, side in FEATURES.items():
-        values = reference[name]
-        if side == "low":
-            bounds[name] = {"side": "low", "value": float(np.quantile(values, q_low))}
-        else:
-            bounds[name] = {"side": "high", "value": float(np.quantile(values, q_high))}
+        q = float(np.quantile(reference[name], q_low if side == "low" else q_high))
+        value = q
+        if name in tolerance:
+            t = float(tolerance[name])
+            value = min(q, t) if side == "low" else max(q, t)
+        bounds[name] = {"side": side, "value": value, "quantile": q, "tolerance_applied": value != q}
     return bounds
 
 
