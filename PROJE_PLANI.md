@@ -179,4 +179,28 @@ rapor modülü tablolarla grafikleri üretti. Bu ölçekteki sayılar bilimsel s
 7 hat × 3 tohum ≈ 85 saat. Öneri: önce `raw`, `dual_filter`, `human_mix` × 3 tohum (~40 saat; H1, H2,
 H4'ün ilk yarısı), sonra ablasyonlar. Bütçe yetmezse `data.n_train=5000` süreyi yarıya indirir.
 
-**Sıradaki adım:** F3: `raw` hattı, 5 nesil, 3 tohum (çıktılar `MC_OUTPUT_DIR` ile OneDrive dışına).
+**İlk gerçek çalıştırma (Colab T4, `raw`, tohum 0, N=10k, 2026-11-26):**
+
+| Nesil | test PPL | rare_recall | distinct-2 | Vendi |
+|------:|---------:|------------:|-----------:|------:|
+| 0 | 5.19 | 0.301 | 0.332 | 27.0 |
+| 1 | 5.50 | 0.278 | 0.332 | 27.0 |
+| 2 | 5.66 | 0.258 | 0.340 | 28.0 |
+| 3 | 5.76 | 0.247 | 0.336 | 28.3 |
+| 4 | 5.85 | 0.230 | 0.340 | 28.6 |
+| 5 | 5.93 | 0.201 | 0.341 | 29.3 |
+
+- **H1'in çöküş kısmı tek tohumda gözleniyor:** gerçek test PPL'i 5 nesilde %14 arttı. Nadir kelime
+  geri çağırma %33 düştü; dağılımın kuyruğu kayboluyor.
+- **Çeşitlilik metrikleri ters yönde:** distinct-2 ve Vendi hafifçe arttı. T=1 saf örneklemede model
+  hatalarını biriktirip gerçek dağılımdan uzaklaşan, daha "gürültülü" metin üretiyor (Shumailov vd.'nin
+  dil modeli deneylerinde de görülen olasılıksız dizilerin artışı). Bu yüzden çeşitlilik tek başına
+  "sağlıklı" yorumlanmamalı; `js_real_gen`, `frechet_real` ve `rare_recall` ile birlikte okunmalı.
+  H1'in "çeşitlilik düşer" kısmı bu ayarda tutmayabilir; hipotez metni sonuçlar netleşince güncellenmeli.
+- Eğitim kaybı nesil-0'da 1.63 iken sentetik veride ~2.0'a çıkıp sabit kalıyor: sentetik veri gerçek
+  veriden daha yüksek entropili.
+- **Süre:** nesil başına ~31 dk (üretim 24 dk, 10.5 doküman/sn, batch 128), hat×tohum ~2.7 saat.
+  Yerel tahminin (~4 saat) altında. 8 hat × 3 tohum ≈ 55–60 saat (T4).
+
+**Sıradaki adım:** Aynı tohumla `dual_filter` ve `human_mix` (nesil-0 ve nesil-1 havuzu paylaşıldığı
+için ilk karşılaştırma ucuz), ardından `raw` için tohum 1 ve 2.

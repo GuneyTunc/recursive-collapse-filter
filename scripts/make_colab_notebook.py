@@ -41,6 +41,11 @@ print("torch", torch.__version__, "| CUDA:", torch.cuda.is_available())
 assert torch.cuda.is_available(), "GPU yok: Çalışma zamanı → Çalışma zamanı türünü değiştir → GPU"
 major, minor = torch.cuda.get_device_capability()
 print("compute capability", f"{major}.{minor}", "→ precision:", "bf16" if major >= 8 else "fp16 (T4)")
+
+# Sampling throughput grows with batch size; ~2.8 GB per 128 documents of 300 tokens was measured.
+vram_gb = torch.cuda.get_device_properties(0).total_memory / 2**30
+AUTO_GEN_BATCH = 1024 if vram_gb >= 40 else 512 if vram_gb >= 20 else 256 if vram_gb >= 14 else 128
+print(f"VRAM {vram_gb:.1f} GB → generate.batch_size={AUTO_GEN_BATCH}")
 """),
     md("## 2. Ayarlar"),
     code("""
@@ -50,9 +55,9 @@ BRANCH = "main"
 DRIVE_ROOT = "/content/drive/MyDrive/recursive-collapse-filter"  # çıktılar, veri, rapor
 LINES = ["raw"]          # sırayla çalışır: raw, dual_filter, human_mix, density_only, ppl_only, semdedup, dual_human, accumulate
 SEEDS = [0]              # bir oturumda 1 tohum önerilir (~4 saat / hat)
+GEN_BATCH = "auto"       # üretim batch'i: "auto" = VRAM'e göre (T4 256, L4 512, A100/G4 1024); yalnızca hız ayarı
 EXTRA = [                # isteğe bağlı config değişiklikleri: "anahtar=değer"
     # "data.n_train=5000",       # süreyi yarıya indirir (tüm hatlarda aynı kullan!)
-    # "generate.batch_size=256", # büyük VRAM'de daha hızlı üretim (yalnızca hız ayarı)
 ]
 """),
     md("## 3. Drive ve kod"),
@@ -71,6 +76,8 @@ else:
 
 os.environ["MC_OUTPUT_DIR"] = f"{DRIVE_ROOT}/outputs"
 os.environ["PYTHONIOENCODING"] = "utf-8"
+# Variable-length batches fragment the CUDA cache; on a T4 this caused an OOM retry during training.
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 DATA_DIR = f"{DRIVE_ROOT}/data/real"  # gerçek veri bir kez indirilir, sonraki oturumlar Drive'dan okur
 pathlib.Path(DRIVE_ROOT).mkdir(parents=True, exist_ok=True)
 """),
@@ -95,7 +102,9 @@ Uzun sürer. Oturum koparsa 3. hücreden itibaren yeniden çalıştır: tamamlan
 """),
     code("""
 import shlex
-sets = " ".join(f"--set {shlex.quote(s)}" for s in [f"data.data_dir={DATA_DIR}", *EXTRA])
+gen_batch = AUTO_GEN_BATCH if GEN_BATCH == "auto" else GEN_BATCH
+overrides = [f"data.data_dir={DATA_DIR}", f"generate.batch_size={gen_batch}", *EXTRA]  # EXTRA wins
+sets = " ".join(f"--set {shlex.quote(s)}" for s in overrides)
 seeds = " ".join(map(str, SEEDS))
 for line in LINES:
     print(f"===== {line} | seeds {seeds} =====")
@@ -108,8 +117,11 @@ for line in LINES:
 import pandas as pd
 from IPython.display import Image, display
 summary = pd.read_csv(f"{DRIVE_ROOT}/results/summary.csv")
-display(summary[["line", "generation", "n_seeds", "test_ppl_mean", "distinct_2_mean", "vendi_mean", "rare_recall_mean"]])
-for metric in ["test_ppl", "vendi", "rare_recall"]:
+cols = ["test_ppl", "rare_recall", "vendi", "distinct_2", "js_real_gen", "frechet_real", "rep3_mean"]
+display(summary[["line", "generation", "n_seeds", *[f"{c}_mean" for c in cols]]].round(4))
+# Rising vendi/distinct alone is not "healthy diversity": read it together with js_real_gen and
+# frechet_real (distance to real data) and rare_recall (tail preservation).
+for metric in ["test_ppl", "rare_recall", "vendi", "js_real_gen", "frechet_real"]:
     display(Image(f"{DRIVE_ROOT}/results/plots/{metric}.png"))
 """),
     md("""

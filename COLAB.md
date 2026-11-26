@@ -34,7 +34,7 @@ Hücreleri sırayla çalıştır:
    ```python
    LINES = ["raw"]
    SEEDS = [0]
-   EXTRA = ["generate.batch_size=512"]   # T4'te 256
+   GEN_BATCH = "auto"   # VRAM'e göre: T4 256, L4 512, A100/G4 1024
    ```
 3. **Drive ve kod:** Drive erişimine izin ver. Son satırda en güncel commit görünmeli.
 4. **Kurulum ve testler:** Sonunda `40 passed` görmelisin.
@@ -51,18 +51,23 @@ Hücreleri sırayla çalıştır:
 4. Bir neslin maliyeti = süre (saat) × kartın saatlik compute unit tüketimi.
    Bir hat ve bir tohum 5 nesil + nesil-0 sürer.
 
-Karşılaştırma istersen aynı adımları T4'te `generate.batch_size=256` ile tekrarla ve ucuz olanı seç.
+Karşılaştırma istersen aynı adımları diğer kartta tekrarla ve ucuz olanı seç.
+
+**Ölçülen süre (T4, `generate.batch_size=128`, 2026-11-26):** nesil başına ~31 dk (eğitim 6 dk,
+üretim 24 dk ≈ 10.5 doküman/sn), son nesil ~8 dk. `raw` hattı, tek tohum: toplam **2 saat 42 dk**.
+Aynı tohumun sonraki hatları nesil-0'ı paylaştığı için ~31 dk daha kısa sürer. Batch 256 ile üretimin
+hızlanması beklenir; ilk çalıştırmada 8. hücreden kontrol et.
 
 ## 5. Asıl deneyleri çalıştır
 
 1. Hatları şu sırayla çalıştır: `raw` → `dual_filter` → `human_mix` (H1, H2, H4), sonra ablasyonlar:
    `density_only`, `ppl_only`, `semdedup`, `dual_human`, `accumulate`.
-2. Her hat için tohumlar `0, 1, 2`. Bir oturumda **bir tohum** önerilir; bir hat ve tohum birkaç saat sürer.
+2. Her hat için tohumlar `0, 1, 2`. Bir oturumda **bir tohum** önerilir; T4'te bir hat ve tohum ~2–2.7 saat sürer.
 3. Örnek ayar:
    ```python
    LINES = ["raw", "dual_filter", "human_mix"]
    SEEDS = [0]
-   EXTRA = ["generate.batch_size=512"]
+   GEN_BATCH = "auto"
    ```
 4. Hepsi bitince **Rapor** hücresini (7) çalıştır. Tablo ve grafikler Drive'da
    `MyDrive/recursive-collapse-filter/results/` altına yazılır.
@@ -83,6 +88,7 @@ Karşılaştırma istersen aynı adımları T4'te `generate.batch_size=256` ile 
 | Belirti | Çözüm |
 |---------|-------|
 | `... was produced with a different configuration` | Deneyi tanımlayan bir ayarı değiştirdin. Eski ayara dön ya da `EXTRA`'ya farklı bir `experiment.line=...` ekle. |
-| `CUDA out of memory` | `generate.batch_size` değerini yarıya indir. |
+| `CUDA out of memory` (hata) | Ayarlar hücresinde `GEN_BATCH`'i otomatik değerin yarısına indir (ör. T4'te `128`). |
+| Logda `[W ... CUDACachingAllocator] memory allocation failed with OOM` uyarısı | Çalışma durmadıysa zararsızdır: PyTorch önbelleği boşaltıp yeniden dener. Notebook bunu azaltmak için `expandable_segments` açar. |
 | `GPU yok` hatası | Çalışma zamanı türünü GPU olarak değiştir. |
 | Kurulumdan sonra garip içe aktarma hataları | **Çalışma zamanı → Oturumu yeniden başlat**, 1. hücreden başla. |
