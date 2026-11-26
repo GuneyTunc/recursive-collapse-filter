@@ -31,6 +31,7 @@ src/features.py          # önbellekli embedding ve referans PPL
 src/filters/             # heuristics, perplexity, density, semdedup, selection (dual_filter)
 src/metrics/             # text.py, embedding.py, report.py (toplama + grafikler)
 scripts/toy_gaussian.py  # F1 oyuncak deneyi (GPU gerekmez)
+scripts/make_colab_notebook.py  # notebooks/colab_train.ipynb üreticisi
 tests/                   # birim testleri (model gerektirmez)
 results/                 # küçük tablolar ve şekiller (git'e girer)
 outputs/, data/          # ağırlıklar, havuzlar, embedding'ler (git'e GİRMEZ)
@@ -57,8 +58,10 @@ Hat adları: `raw`, `density_only`, `ppl_only`, `semdedup`, `dual_filter`, `huma
 ## Ortam
 
 - Windows 11, RTX 4060 Laptop (8 GB), Python 3.13 (global kurulum, CUDA'lı torch 2.6). transformers 5.x: `from_pretrained(..., dtype=...)` kullanılır, `torch_dtype` değil.
-- **Disk dar (C: ~30 GB boş):** Ara model ağırlıkları kaydedilmez (`keep_checkpoints: false`); yalnızca tohum başına nesil-0 modeli saklanır.
-- **Proje OneDrive içinde:** Büyük çıktılar senkronize olmasın diye `MC_OUTPUT_DIR` ortam değişkeniyle OneDrive dışına yönlendir.
+- **PATH'te önce Python 3.11 var** (torch yüklü değil). Proje paketleri 3.13'te: komutları `py -3.13 -m ...` ile çalıştır.
+- **Disk:** Ara model ağırlıkları kaydedilmez (`keep_checkpoints: false`); yalnızca tohum başına nesil-0 modeli saklanır.
+- Proje `C:\Users\Güney\Desktop\Projeler\` altında, OneDrive dışında. `MC_OUTPUT_DIR` çıktıları başka bir diske veya Drive'a yönlendirmek için kullanılabilir.
+- **Colab:** `notebooks/colab_train.ipynb`; kaynağı `scripts/make_colab_notebook.py`, notebook'u elle değil bu betikle üret. Çıktılar ve gerçek veri Drive'da tutulur. `model.precision: auto`, T4'te fp16 + GradScaler, Ampere ve sonrası GPU'larda bf16 seçer. Çıktı/veri yolları ve batch boyutları `PERF_KEYS` ile klasör imzasından hariç tutulur.
 - Konsolda Türkçe/Unicode için `PYTHONIOENCODING=utf-8` gerekebilir. Dosya yollarında `pathlib` kullan (kullanıcı dizini `Güney`).
 - Uzun eğitim/üretim komutlarını arka planda çalıştır. **Darboğaz üretimdir:** batch 128'de ~6.5 doküman/sn (300 token), yani N=10k ve oversample=1.5 ile havuz başına ~40 dk. Batch >128 VRAM'i aşıp WDDM paylaşımlı belleğe taşar ve çok yavaşlar. Özel örnekleme döngüsü hız kazandırmadı (ölçüldü). Dizüstünü prize takıp yüksek performans modunda çalıştır.
 - `finetune()` eğitimde KV önbelleğini kapatır; `generate` çağrısında `use_cache=True` açıkça verilmeli (olmazsa ~17 kat yavaş).

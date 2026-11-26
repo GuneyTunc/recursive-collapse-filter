@@ -48,7 +48,8 @@ def reference_log_ppl(texts: list[str], ref_path: str | Path, cfg: dict,
 
     tok = load_tokenizer(ref_path)
     model = load_model(ref_path)
-    v = doc_log_ppl(model, tok, texts, cfg["model"]["max_length"], cfg["filter"]["ppl_batch_size"])
+    v = doc_log_ppl(model, tok, texts, cfg["model"]["max_length"], cfg["filter"]["ppl_batch_size"],
+                    cfg["model"]["precision"])
     del model
     free_gpu()
     if cache is not None:

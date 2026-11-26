@@ -11,6 +11,29 @@ from tqdm.auto import tqdm
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def amp_dtype(precision: str = "auto") -> torch.dtype | None:
+    """Autocast dtype for ``model.precision``; None means plain fp32.
+
+    ``auto`` picks bf16 only on compute capability >= 8 (Ampere and newer). Older
+    GPUs such as Colab's T4 only emulate bf16, which is far slower than fp16.
+    """
+    if DEVICE != "cuda" or precision == "fp32":
+        return None
+    if precision == "bf16":
+        return torch.bfloat16
+    if precision == "fp16":
+        return torch.float16
+    if precision != "auto":
+        raise ValueError(f"Unknown precision {precision!r}")
+    major, _ = torch.cuda.get_device_capability()
+    return torch.bfloat16 if major >= 8 else torch.float16
+
+
+def autocast(precision: str = "auto"):
+    dtype = amp_dtype(precision)
+    return torch.autocast(DEVICE, dtype=dtype or torch.float32, enabled=dtype is not None)
+
+
 def load_tokenizer(name_or_path: str | Path):
     from transformers import AutoTokenizer
 
@@ -51,7 +74,7 @@ def pad_batch(seqs: list[list[int]], pad_id: int) -> tuple[torch.Tensor, torch.T
 
 @torch.inference_mode()
 def token_nll(model, tok, texts: list[str], max_length: int, batch_size: int = 32,
-              bf16: bool = True, desc: str = "ppl", chunk_tokens: int = 2048) -> tuple[np.ndarray, np.ndarray]:
+              precision: str = "auto", desc: str = "ppl", chunk_tokens: int = 2048) -> tuple[np.ndarray, np.ndarray]:
     """Per-document summed NLL and number of predicted tokens.
 
     The LM head is applied to ``chunk_tokens`` valid positions at a time, so the
@@ -64,19 +87,18 @@ def token_nll(model, tok, texts: list[str], max_length: int, batch_size: int = 3
     order = np.argsort([len(s) for s in seqs])  # length-sorted batches waste less padding
     nll = np.zeros(len(seqs))
     count = np.zeros(len(seqs))
-    use_bf16 = bf16 and DEVICE == "cuda"
     for start in tqdm(range(0, len(seqs), batch_size), desc=desc, leave=False):
         idx = order[start: start + batch_size]
         ids, mask = pad_batch([seqs[i] for i in idx], tok.pad_token_id)
         ids, mask = ids.to(DEVICE), mask.to(DEVICE)
-        with torch.autocast(DEVICE, dtype=torch.bfloat16, enabled=use_bf16):
+        with autocast(precision):
             hidden = decoder(input_ids=ids, attention_mask=mask).last_hidden_state[:, :-1]
         valid = mask[:, 1:].bool()
         rows = valid.nonzero(as_tuple=True)[0]
         h, target = hidden[valid], ids[:, 1:][valid]
         per_tok = torch.empty(len(target), device=DEVICE)
         for c in range(0, len(target), chunk_tokens):
-            with torch.autocast(DEVICE, dtype=torch.bfloat16, enabled=use_bf16):
+            with autocast(precision):
                 logits = head(h[c: c + chunk_tokens])
             per_tok[c: c + chunk_tokens] = torch.nn.functional.cross_entropy(
                 logits.float(), target[c: c + chunk_tokens], reduction="none")
@@ -86,13 +108,15 @@ def token_nll(model, tok, texts: list[str], max_length: int, batch_size: int = 3
     return nll, count
 
 
-def doc_log_ppl(model, tok, texts: list[str], max_length: int, batch_size: int = 32) -> np.ndarray:
+def doc_log_ppl(model, tok, texts: list[str], max_length: int, batch_size: int = 32,
+                precision: str = "auto") -> np.ndarray:
     """Per-document log-perplexity (mean token NLL)."""
-    nll, count = token_nll(model, tok, texts, max_length, batch_size, desc="doc-ppl")
+    nll, count = token_nll(model, tok, texts, max_length, batch_size, precision, desc="doc-ppl")
     return nll / np.maximum(count, 1)
 
 
-def corpus_ppl(model, tok, texts: list[str], max_length: int, batch_size: int = 32) -> float:
+def corpus_ppl(model, tok, texts: list[str], max_length: int, batch_size: int = 32,
+               precision: str = "auto") -> float:
     """Token-weighted corpus perplexity."""
-    nll, count = token_nll(model, tok, texts, max_length, batch_size, desc="test-ppl")
+    nll, count = token_nll(model, tok, texts, max_length, batch_size, precision, desc="test-ppl")
     return float(math.exp(nll.sum() / count.sum()))

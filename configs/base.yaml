@@ -25,6 +25,7 @@ data:
 model:
   base: HuggingFaceTB/SmolLM-135M
   max_length: 320
+  precision: auto           # auto | bf16 | fp16 | fp32; auto = bf16 on Ampere+ (RTX 30xx/40xx, L4, A100), fp16 on T4
 
 train:
   epochs: 1
@@ -35,7 +36,6 @@ train:
   gradient_checkpointing: true  # ~3.6 GB peak instead of ~6.9 GB at micro-batch 8, same speed
   warmup_ratio: 0.03
   max_grad_norm: 1.0
-  bf16: true
 
 generate:
   prompt_mode: bos          # bos (unconditional) | real_prefix

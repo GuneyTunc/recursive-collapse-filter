@@ -1,5 +1,7 @@
 # Yinelemeli LLM Eğitiminde Model Çökmesinin Veri Madenciliği ile Hafifletilmesi
 
+[![Colab'da aç](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GuneyTunc/recursive-collapse-filter/blob/main/notebooks/colab_train.ipynb)
+
 > **EN:** A small language model is trained for several generations on its own synthetic output.
 > Instead of an LLM judge, a lightweight, deterministic **Dual-Filter** (embedding-density
 > downsampling + reference-calibrated noise bounds) selects each generation's training data, aiming
@@ -115,6 +117,19 @@ python -m src.metrics.report --results outputs --out results
 
 **Süre:** Darboğaz üretim aşamasıdır. RTX 4060 Laptop'ta nesil başına yaklaşık 50 dakika, bir hat ve bir
 tohum için (5 nesil) yaklaşık 4 saat sürer.
+
+## Google Colab'da Çalıştırma
+
+[`notebooks/colab_train.ipynb`](notebooks/colab_train.ipynb) deneyleri Colab GPU'sunda çalıştırır.
+Yukarıdaki rozetle açılabilir. Donanım seçimi, test ve çalıştırma adımları: **[COLAB.md](COLAB.md)**.
+
+- Tüm çıktılar Google Drive'a yazılır (`MyDrive/recursive-collapse-filter/`). Oturum koparsa hücreleri
+  yeniden çalıştırmak yeterli; tamamlanan nesiller atlanır.
+- Hassasiyet GPU'ya göre otomatik seçilir (`model.precision: auto`): T4'te fp16 + loss scaling,
+  L4/A100'de bf16.
+- Çıktı/veri klasörü ve batch boyutları klasör imzasına dahil değildir. Böylece yerelde başlayan bir deney
+  Drive'a taşınıp Colab'da sürdürülebilir; yeter ki deneyi tanımlayan ayarlar aynı kalsın.
+- Notebook'u değiştirmek için `.ipynb`'yi değil, `scripts/make_colab_notebook.py`'yi düzenle.
 
 ## Proje Yapısı
 

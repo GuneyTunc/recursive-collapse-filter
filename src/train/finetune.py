@@ -1,4 +1,4 @@
-"""Plain PyTorch fine-tuning loop (bf16 autocast, length-grouped batches)."""
+"""Plain PyTorch fine-tuning loop (mixed precision, length-grouped batches)."""
 from __future__ import annotations
 
 import logging
@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from tqdm.auto import tqdm
 
-from src.lm import DEVICE, encode_documents, load_model, load_tokenizer, pad_batch
+from src.lm import DEVICE, amp_dtype, autocast, encode_documents, load_model, load_tokenizer, pad_batch
 from src.utils import free_gpu
 
 log = logging.getLogger("mc")
@@ -54,7 +54,9 @@ def finetune(cfg: dict, texts: list[str], seed: int):
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt, lambda s: min((s + 1) / warmup, max(0.0, (total_steps - s) / max(1, total_steps - warmup)))
     )
-    use_bf16 = t["bf16"] and DEVICE == "cuda"
+    precision = m["precision"]
+    # fp16 (e.g. Colab T4) needs loss scaling; bf16 and fp32 do not.
+    scaler = torch.amp.GradScaler(DEVICE, enabled=amp_dtype(precision) == torch.float16)
 
     step, losses = 0, []
     bar = tqdm(total=total_steps, desc="train", leave=False)
@@ -66,13 +68,15 @@ def finetune(cfg: dict, texts: list[str], seed: int):
             ids, mask = pad_batch([seqs[i] for i in idx], tok.pad_token_id)
             ids, mask = ids.to(DEVICE), mask.to(DEVICE)
             labels = ids.masked_fill(mask == 0, -100)  # pad == eos for SmolLM, so mask by attention
-            with torch.autocast(DEVICE, dtype=torch.bfloat16, enabled=use_bf16):
+            with autocast(precision):
                 loss = model(input_ids=ids, attention_mask=mask, labels=labels).loss
-            (loss / t["grad_accum"]).backward()
+            scaler.scale(loss / t["grad_accum"]).backward()
             losses.append(loss.item())
             if (b_i + 1) % t["grad_accum"] == 0 or b_i + 1 == len(batches):
+                scaler.unscale_(opt)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), t["max_grad_norm"])
-                opt.step()
+                scaler.step(opt)
+                scaler.update()
                 sched.step()
                 opt.zero_grad(set_to_none=True)
                 step += 1
@@ -85,9 +89,11 @@ def finetune(cfg: dict, texts: list[str], seed: int):
     model.config.use_cache = True
     # Release optimizer state and the allocator cache before generation: reserved-but-unused
     # memory otherwise pushes sampling into WDDM shared memory (~28x slower).
-    del opt, sched
+    del opt, sched, scaler
     free_gpu()
     stats = {"train_steps": step, "train_loss_last": float(np.mean(losses[-50:])),
+             "precision": str(amp_dtype(precision) or torch.float32).replace("torch.", ""),
+             "gpu": torch.cuda.get_device_name(0) if DEVICE == "cuda" else "cpu",
              "train_docs": len(seqs), "train_tokens": int(sum(len(s) for s in seqs))}
     log.info("Fine-tuned on %d docs, %d steps, final loss %.3f", len(seqs), step, stats["train_loss_last"])
     return model, tok, stats

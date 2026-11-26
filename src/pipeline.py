@@ -130,7 +130,7 @@ class Run:
 
         with timer(metrics, "time_test_ppl"):
             metrics["test_ppl"] = corpus_ppl(model, tok, self.real.test, self.cfg["model"]["max_length"],
-                                             self.cfg["filter"]["ppl_batch_size"])
+                                             self.cfg["filter"]["ppl_batch_size"], self.cfg["model"]["precision"])
         free_gpu()
         n_eval = self.cfg["eval"]["n_samples"]
         with timer(metrics, "time_generate"):
@@ -266,8 +266,10 @@ class Run:
             self.finish(g, metrics, train)
 
 
-# Throughput-only settings: changing them must not block resuming a run.
-PERF_KEYS = (("generate", "batch_size"), ("filter", "embedding_batch_size"), ("filter", "ppl_batch_size"))
+# Throughput and location settings: changing them (e.g. moving outputs to Google Drive or
+# a larger batch on a bigger GPU) must not block resuming a run.
+PERF_KEYS = (("generate", "batch_size"), ("filter", "embedding_batch_size"), ("filter", "ppl_batch_size"),
+             ("experiment", "output_dir"), ("data", "data_dir"))
 
 
 def _without_perf_keys(cfg: dict) -> dict:

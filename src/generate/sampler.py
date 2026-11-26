@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from tqdm.auto import tqdm
 
-from src.lm import DEVICE, separator_id
+from src.lm import DEVICE, autocast, separator_id
 
 
 def _prompts(cfg: dict, n: int, real_texts: list[str] | None, rng: np.random.Generator) -> list[str]:
@@ -41,7 +41,7 @@ def generate_texts(model, tok, cfg: dict, n: int, seed: int,
         for i, e in enumerate(enc):
             ids[i, width - len(e):] = torch.tensor(e)
             mask[i, width - len(e):] = 1
-        with torch.autocast(DEVICE, dtype=torch.bfloat16, enabled=DEVICE == "cuda"):
+        with autocast(cfg["model"]["precision"]):
             gen = model.generate(
                 input_ids=ids.to(DEVICE), attention_mask=mask.to(DEVICE),
                 do_sample=True, temperature=g["temperature"], top_p=g["top_p"], top_k=0,

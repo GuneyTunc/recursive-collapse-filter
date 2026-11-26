@@ -50,3 +50,32 @@ def test_check_signature_refuses_changed_config(tmp_path):
     check_signature(path, {"train": {"lr": 1e-4}})  # same config resumes
     with pytest.raises(RuntimeError, match="different configuration"):
         check_signature(path, {"train": {"lr": 2e-4}})
+
+
+def test_amp_dtype(monkeypatch):
+    import pytest
+    import torch
+
+    import src.lm as lm
+
+    monkeypatch.setattr(lm, "DEVICE", "cuda")
+    assert lm.amp_dtype("fp32") is None
+    assert lm.amp_dtype("fp16") == torch.float16
+    assert lm.amp_dtype("bf16") == torch.bfloat16
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda *a: (7, 5))  # T4
+    assert lm.amp_dtype("auto") == torch.float16
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda *a: (8, 9))  # RTX 40xx
+    assert lm.amp_dtype("auto") == torch.bfloat16
+    with pytest.raises(ValueError):
+        lm.amp_dtype("int8")
+    monkeypatch.setattr(lm, "DEVICE", "cpu")
+    assert lm.amp_dtype("auto") is None
+
+
+def test_paths_do_not_change_signature():
+    from src.pipeline import _without_perf_keys
+
+    a = load_config(resolve("configs/lines/raw.yaml"))
+    b = load_config(resolve("configs/lines/raw.yaml"),
+                    ["experiment.output_dir=/content/drive/MyDrive/mc", "data.data_dir=/content/data"])
+    assert _without_perf_keys(a) == _without_perf_keys(b)
