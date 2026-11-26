@@ -245,6 +245,42 @@ details > .tablewrap { border: 0; border-top: 1px solid var(--line); border-radi
 
 #tip { position: fixed; z-index: 20; pointer-events: none; background: var(--fg); color: var(--bg); font: 500 12px/1.4 var(--font-data); padding: 5px 8px; border-radius: 5px; max-width: 18rem; }
 footer { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+/* print / PDF export */
+.print-only { display: none; }
+@page { size: A4; margin: 14mm 12mm 16mm; }
+@media print {
+  :root { color-scheme: light; }
+  body { font-size: 10.5pt; padding-left: 0; padding-right: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  main { max-width: none; padding-block: 0; gap: 26px; }
+  section { gap: 12px; }
+  h2 { break-before: page; }
+  #ozet h2 { break-before: auto; }
+  h2, h3, .figtitle { break-after: avoid; }
+  figure, .tablewrap, .note, .keypoints li, .timeline li, .ideas > div, .checklist li, tr, pre, .refs li { break-inside: avoid; }
+  .scroll { overflow: visible; }
+  svg.diagram-wide { min-width: 0; }
+  .seg, #tip { display: none !important; }
+  .print-only { display: block; font-weight: 600; font-size: 0.85rem; color: var(--fg2); }
+  #toy-clean-panel[hidden] { display: block !important; }
+  /* Chromium fragments CSS grid badly across pages (overlapping text): use block flow in print. */
+  :root { --bg: #ffffff; }
+  th { background: #f1f3f7; }
+  main, section, figure, .ideas, .refs, .keypoints, .checklist, .panel, .grid2 { display: block; }
+  main > * + * { margin-top: 26px; }
+  section > * + *, figure > * + * { margin-top: 10px; }
+  .keypoints li, .checklist li, .refs li { margin-top: 8px; }
+  .grid2 > .panel { display: inline-block; width: 49%; vertical-align: top; break-inside: avoid; margin-top: 8px; }
+  .grid2 > .tablewrap + .tablewrap { margin-top: 12px; }
+  .ideas { columns: 2; column-gap: 24px; }
+  .ideas > div { break-inside: avoid; margin-bottom: 16px; display: block; }
+  .ideas > div > * + * { margin-top: 8px; }
+  .refgroup { break-after: avoid; }
+  .tablewrap { overflow: visible; }
+  td code, th code { white-space: nowrap; overflow-wrap: normal; }
+  details summary { list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  a { text-decoration: none; }
+}
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 </style>
 
@@ -651,7 +687,7 @@ footer { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--li
   <path class="flow" d="M774,156 V190" marker-end="url(#ah-a)"/>
 </svg>
     </div>
-    <figcaption>Model gerektiren kod (eğitim, üretim, perplexity) ile önceden hesaplanmış dizilerle çalışan saf kod (filtreler, metrikler) ayrı tutuldu. Böylece 33 birim testi GPU ve model indirmeden çalışıyor. Pahalı adımlar (embedding, referans PPL, üretim) diske yazılır; <code>metrics.json</code> en son yazıldığı için yarıda kalan bir çalıştırma aynı komutla kaldığı nesilden devam eder.</figcaption>
+    <figcaption>Model gerektiren kod (eğitim, üretim, perplexity) ile önceden hesaplanmış dizilerle çalışan saf kod (filtreler, metrikler) ayrı tutuldu. Böylece 38 birim testi GPU ve model indirmeden çalışıyor. Pahalı adımlar (embedding, referans PPL, üretim) diske yazılır; <code>metrics.json</code> en son yazıldığı için yarıda kalan bir çalıştırma aynı komutla kaldığı nesilden devam eder.</figcaption>
   </figure>
 
   <h3>6.3 Deney hatları</h3>
@@ -737,6 +773,7 @@ footer { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--li
       <span class="s-raw"><i class="sw line"></i>raw</span>
       <span class="s-other"><i class="sw dash"></i>density_only</span>
     </div>
+    <p class="print-only">Ayar: %2 gürültü</p>
     <div class="grid2" id="toy-noise-panel">
       <div class="panel"><h4 id="toykl-noise">KL(gerçek ‖ model) <span>· düşük daha iyi</span></h4><svg viewBox="0 0 460 290" role="img" aria-labelledby="toykl-noise" class="chart">
 <line class="grid" x1="46" x2="356" y1="250.0" y2="250.0"/>
@@ -859,6 +896,7 @@ footer { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--li
 <text class="endlab" x="364" y="262.5">density_only <tspan class="endval">0,001</tspan></text>
 </svg></div>
     </div>
+    <p class="print-only">Ayar: gürültüsüz</p>
     <div class="grid2" id="toy-clean-panel" hidden>
       <div class="panel"><h4 id="toykl-clean">KL(gerçek ‖ model) <span>· düşük daha iyi</span></h4><svg viewBox="0 0 460 290" role="img" aria-labelledby="toykl-clean" class="chart">
 <line class="grid" x1="46" x2="356" y1="250.0" y2="250.0"/>
@@ -1563,6 +1601,12 @@ python -m src.metrics.report --results $env:MC_OUTPUT_DIR --out results</pre>
   document.addEventListener('pointermove', show);
   document.addEventListener('pointerleave', function () { tip.hidden = true; });
   window.addEventListener('scroll', function () { tip.hidden = true; }, { passive: true });
+
+  // Closed <details> do not print: open them for print / PDF export.
+  function openAll() { document.querySelectorAll('details').forEach(function (d) { d.open = true; }); }
+  window.addEventListener('beforeprint', openAll);
+  if (window.matchMedia && window.matchMedia('print').matches) openAll();
+  if (/[?&]print/.test(location.search)) openAll();
 
   var bN = document.getElementById('toy-noise'), bC = document.getElementById('toy-clean');
   var pN = document.getElementById('toy-noise-panel'), pC = document.getElementById('toy-clean-panel');
