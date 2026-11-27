@@ -52,7 +52,9 @@ print(f"VRAM {vram_gb:.1f} GB → generate.batch_size={AUTO_GEN_BATCH}")
 REPO_URL = "https://github.com/GuneyTunc/recursive-collapse-filter.git"
 BRANCH = "main"
 
-DRIVE_ROOT = "/content/drive/MyDrive/recursive-collapse-filter"  # çıktılar, veri, rapor
+# Drive'daki proje klasörü: outputs/, data/real ve results/ buraya yazılır. Kod buradan değil,
+# GitHub'dan klonlanan kopyadan çalışır. Drive masaüstü uygulamasıyla yerelde de görünür.
+DRIVE_ROOT = "/content/drive/MyDrive/Model_Collapse_Data_Mining"
 LINES = ["raw"]          # sırayla çalışır: raw, dual_filter, human_mix, density_only, ppl_only, semdedup, dual_human, accumulate
 SEEDS = [0]              # bir oturumda 1 tohum önerilir (~4 saat / hat)
 GEN_BATCH = "auto"       # üretim batch'i: "auto" = VRAM'e göre (T4 256, L4 512, A100/G4 1024); yalnızca hız ayarı

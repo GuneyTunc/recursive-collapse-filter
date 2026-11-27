@@ -70,7 +70,24 @@ hızlanması beklenir; ilk çalıştırmada 8. hücreden kontrol et.
    GEN_BATCH = "auto"
    ```
 4. Hepsi bitince **Rapor** hücresini (7) çalıştır. Tablo ve grafikler Drive'da
-   `MyDrive/recursive-collapse-filter/results/` altına yazılır.
+   `MyDrive/Model_Collapse_Data_Mining/results/` altına yazılır.
+
+## 5.1 Sonuçları yerel bilgisayarda görmek
+
+Colab tüm çıktıları Drive'daki `MyDrive/Model_Collapse_Data_Mining/` klasörüne yazar
+(`outputs/`, `data/real/`, `results/`). Bu klasörü yerelde görmek için:
+
+1. [Google Drive masaüstü uygulamasını](https://www.google.com/drive/download/) kur ve aynı Google
+   hesabıyla giriş yap.
+2. **Ayarlar → Google Drive → "Dosyaları akış olarak aktar" (Stream files)** seçili kalsın.
+   "Dosyaları yansıt" (Mirror) seçme: model ağırlıkları ve havuzlar diski doldurur. Akış modunda
+   yalnızca açılan dosyalar indirilir.
+3. Drive, `G:\My Drive\Model_Collapse_Data_Mining\` (Türkçe arayüzde `G:\Drive'ım\...`) olarak görünür.
+   Önemli dosyalar: `results/all_metrics.csv`, `outputs/<hat>/seed<k>/gen<g>/{metrics,selection}.json`,
+   `samples.jsonl`.
+
+Drive'daki klasör yalnızca çıktılar içindir. Yerel geliştirme kopyası `Desktop\Projeler\` altında kalır;
+Drive'daki kod kopyası kullanılmaz (Colab kodu GitHub'dan klonlar).
 
 ## 6. Kurallar ve ipuçları
 

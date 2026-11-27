@@ -202,5 +202,32 @@ H4'ün ilk yarısı), sonra ablasyonlar. Bütçe yetmezse `data.n_train=5000` s�
 - **Süre:** nesil başına ~31 dk (üretim 24 dk, 10.5 doküman/sn, batch 128), hat×tohum ~2.7 saat.
   Yerel tahminin (~4 saat) altında. 8 hat × 3 tohum ≈ 55–60 saat (T4).
 
-**Sıradaki adım:** Aynı tohumla `dual_filter` ve `human_mix` (nesil-0 ve nesil-1 havuzu paylaşıldığı
-için ilk karşılaştırma ucuz), ardından `raw` için tohum 1 ve 2.
+**İlk karşılaştırma (Colab T4, tohum 0, nesil 5; 2026-11-27):**
+
+| Hat | test PPL | rare_recall | js_real_gen | frechet_real | Vendi |
+|-----|---------:|------------:|------------:|-------------:|------:|
+| nesil-0 (ortak) | 5.19 | 0.301 | 0.0228 | 0.0445 | 27.0 |
+| `raw` | 5.93 | 0.201 | 0.0318 | 0.0648 | 29.3 |
+| `dual_filter` | 5.92 | 0.206 | 0.0308 | 0.0581 | 29.5 |
+| `human_mix` | **5.51** | **0.255** | **0.0259** | **0.0516** | 30.1 |
+
+- **`dual_filter` ≈ `raw`:** test PPL, nadir kelime ve JS farkları tek tohum gürültüsünün altında.
+  Yalnızca `frechet_real` nesil 3'ten itibaren açılan bir fark gösteriyor (0.058 vs 0.065, %10). H2 şu an
+  **desteklenmiyor**; ≥3 tohum olmadan karar verilemez.
+- **`human_mix` açıkça daha iyi:** PPL nesil 2'den sonra ~5.5'te düzleşiyor, nadir kelime kaybı yarı
+  yarıya. %30 gerçek veri çapası beklenen etkiyi veriyor ve hedeflenen üst referans olarak çalışıyor.
+- **Olası neden — çöküşün türü:** Bu ayarda çöküş çeşitlilik kaybı olarak değil, gerçek dağılımdan
+  uzaklaşma (gürültü birikimi) olarak görünüyor: Vendi tüm hatlarda artıyor, JS/Fréchet artıyor.
+  Yoğunluk ekseni çeşitlilik kaybına karşı tasarlandı; uzaklaşmaya karşı asıl araç gürültü ekseni.
+  Ancak varsayılan ayarda perplexity sınırı yalnızca kuyruğa uygulanıyor (`ppl_scope: tail`) ve
+  seçilen setin %70'ini oluşturan merkez PPL kontrolünden geçmiyor.
+- **Süre:** `generate.batch_size=256` ile üretim 1426 → 1117 sn (%22 hızlı). Dual-Filter'ın özellik
+  çıkarımı (embedding + referans PPL, 15k doküman) nesil başına ~2.5 dk ekliyor. Nesil başına ~29 dk.
+
+**Sıradaki adım:**
+1. Seçim istatistiklerine (`selection.json`: elenen/seçilen kuyruk ve merkez sayıları) bak: filtrenin
+   havuzdan gerçekte ne çıkardığını göstermeden sonuç yorumlanmamalı.
+2. Tohum 0 ile `ppl_only` (gürültü ekseni havuzun tamamında) ve `dual_filter` + `filter.dual.ppl_scope=all`
+   varyantını (ayrı bir `experiment.line` adıyla) çalıştır. Hipotez: uzaklaşma rejiminde kazanç gürültü
+   ekseninden gelir.
+3. Ardından `raw`, `dual_filter`, `human_mix` için tohum 1 ve 2.

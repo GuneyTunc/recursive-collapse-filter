@@ -123,7 +123,7 @@ tohum için (5 nesil) yaklaşık 4 saat sürer.
 [`notebooks/colab_train.ipynb`](notebooks/colab_train.ipynb) deneyleri Colab GPU'sunda çalıştırır.
 Yukarıdaki rozetle açılabilir. Donanım seçimi, test ve çalıştırma adımları: **[COLAB.md](COLAB.md)**.
 
-- Tüm çıktılar Google Drive'a yazılır (`MyDrive/recursive-collapse-filter/`). Oturum koparsa hücreleri
+- Tüm çıktılar Google Drive'a yazılır (`MyDrive/Model_Collapse_Data_Mining/`). Oturum koparsa hücreleri
   yeniden çalıştırmak yeterli; tamamlanan nesiller atlanır.
 - Hassasiyet GPU'ya göre otomatik seçilir (`model.precision: auto`): T4'te fp16 + loss scaling,
   L4/A100'de bf16.
