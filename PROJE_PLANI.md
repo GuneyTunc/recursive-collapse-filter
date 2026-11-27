@@ -224,9 +224,24 @@ H4'ün ilk yarısı), sonra ablasyonlar. Bütçe yetmezse `data.n_train=5000` s�
 - **Süre:** `generate.batch_size=256` ile üretim 1426 → 1117 sn (%22 hızlı). Dual-Filter'ın özellik
   çıkarımı (embedding + referans PPL, 15k doküman) nesil başına ~2.5 dk ekliyor. Nesil başına ~29 dk.
 
+**Seçim istatistikleri (`dual_filter`, tohum 0, havuz 15.000, kuyruk 3.000):**
+
+| Nesil | Elenen (PPL) | Elenen (sezgisel) | Elenen kuyruk | Elenen merkez | Seçilen kuyruk | Seçilen merkez |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 1196 | 425 | 1333 | 206 | 1667 | 8333 |
+| 3 | 904 | 416 | 1020 | 250 | 1980 | 8020 |
+| 5 | 763 | 433 | 885 | 256 | 2115 | 7885 |
+
+- Kuyruğun %30–44'ü elenir, neredeyse tamamı PPL sınırıyla. Kuyruk gerçekten gürültü yoğun.
+- Hedeflenen %30 kuyruk payına ulaşılmaz: temiz kuyruk 1.667–2.115 örnek, açık merkezden doldurulur.
+  Gerçekleşen karışım ~%17–21 kuyruk / ~%79–83 merkez.
+- Merkezde yalnızca sezgisel filtre çalışır (~%2 elenir). Seçilen setin ~%80'i PPL kontrolünden geçmez.
+  Bu, `dual_filter ≈ raw` sonucunu ve `ppl_scope=all` deneyinin gerekliliğini destekler.
+- Uzunluk kısalması çöküşün belirgin bir işareti: ortalama kelime sayısı 161 → `raw` 125,
+  `dual_filter` 134, `human_mix` 142. Dual filtre kısalmayı yavaşlatıyor (n_words alt sınırı etkisi).
+
 **Sıradaki adım:**
-1. Seçim istatistiklerine (`selection.json`: elenen/seçilen kuyruk ve merkez sayıları) bak: filtrenin
-   havuzdan gerçekte ne çıkardığını göstermeden sonuç yorumlanmamalı.
+1. ~~Seçim istatistiklerine bak~~ (yukarıda).
 2. Tohum 0 ile `ppl_only` (gürültü ekseni havuzun tamamında) ve `dual_filter` + `filter.dual.ppl_scope=all`
    varyantını (ayrı bir `experiment.line` adıyla) çalıştır. Hipotez: uzaklaşma rejiminde kazanç gürültü
    ekseninden gelir.
